@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">CompassApp</string>
+    <string name="compass_app_activity_main_default_title_placeholder">Compass</string>
+    <string name="distance_from_destination">Distance from destination: %1$s m.</string>
+    <string name="set_destination_button_placeholder">Set destination</string>
+    <string name="actual_destination">Actual destination: %1$s</string>
+    <string name="degrees_textview">%1$sº %2$s</string>
+    <string name="degrees_default_placeholder">DEGREES</string>
+    <string name="loading_distance_to_destination_default_placeholder">Loading distance to destination…</string>
+    <string name="error_dialog_text_default_placeholder">Oops, an error occurred, try again later please!</string>
+    <string name="ok_text_default_button_placeholder">OK</string>
+
+</resources>
