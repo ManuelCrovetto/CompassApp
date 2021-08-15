@@ -1,5 +1,8 @@
 package com.macrosystems.compassapp.data.model
 
+import androidx.annotation.Keep
+
+@Keep
 class Constants {
     companion object{
         const val GOOGLE_PLACES_API_KEY = "AIzaSyARWiudCoI-6WJJpN4k4bZYQ22zuoYYFVk"

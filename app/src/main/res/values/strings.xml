@@ -11,4 +11,7 @@
     <string name="ok_text_default_button_placeholder">OK</string>
     <string name="mapKey" translatable="false" templateMergeStrategy="preserve">AIzaSyARWiudCoI-6WJJpN4k4bZYQ22zuoYYFVk</string>
     <string name="go_back_button_placeholder">Go Back</string>
+
+    <string name="lost_connection_default_text">Connection lost. Reconnecting… </string>
+    <string name="connected_successfully_default_text">Connected</string>
 </resources>

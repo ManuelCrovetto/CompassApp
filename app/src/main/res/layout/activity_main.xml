@@ -10,6 +10,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp"
         android:elevation="16dp"
         android:fontFamily="@font/freesansbold"
         android:text="@string/compass_app_activity_main_default_title_placeholder"
