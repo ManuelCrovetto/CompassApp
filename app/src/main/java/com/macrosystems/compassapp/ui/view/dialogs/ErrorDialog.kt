@@ -4,10 +4,8 @@ import android.content.Context
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatDialog
 import com.macrosystems.compassapp.databinding.ErrorDialogBinding
-import dagger.hilt.android.qualifiers.ApplicationContext
-import javax.inject.Inject
 
-class ErrorDialog (private val _context: Context, private val personalizedErrorMessage: String?, val listener: () -> Unit): AppCompatDialog(_context) {
+class ErrorDialog (context: Context, private val personalizedErrorMessage: String?, val listener: () -> Unit): AppCompatDialog(context) {
 
     private lateinit var binding: ErrorDialogBinding
 

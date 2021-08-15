@@ -1,8 +1,8 @@
 package com.macrosystems.compassapp.ui.view
 
+import android.Manifest
 import android.app.Activity.RESULT_OK
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
@@ -10,19 +10,20 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
-import android.location.Location
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.Window
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
 import com.daimajia.androidanimations.library.Techniques
 import com.daimajia.androidanimations.library.YoYo
 import com.google.android.gms.maps.model.LatLng
@@ -31,28 +32,31 @@ import com.google.android.libraries.places.api.model.Place
 import com.google.android.libraries.places.widget.Autocomplete
 import com.google.android.libraries.places.widget.model.AutocompleteActivityMode
 import com.macrosystems.compassapp.R
-import com.macrosystems.compassapp.data.model.Constants.Companion.GOOGLE_PLACES_REQUEST_CODE
-import com.macrosystems.compassapp.data.model.Constants.Companion.REQUEST_LOCATION_CODE
+
 import com.macrosystems.compassapp.databinding.CompassFragmentBinding
-import com.macrosystems.compassapp.ui.core.interfaces.FragmentListener
 import com.macrosystems.compassapp.ui.view.dialogs.ErrorDialog
 import com.macrosystems.compassapp.ui.viewmodel.CompassFragmentViewModel
 import dagger.hilt.android.AndroidEntryPoint
-import kotlin.math.abs
+import kotlinx.coroutines.flow.collect
+import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 @AndroidEntryPoint
-class CompassFragment: Fragment(), FragmentListener, View.OnClickListener, SensorEventListener {
+class CompassFragment: Fragment(), SensorEventListener {
 
     private val viewModel: CompassFragmentViewModel by viewModels()
 
     private var _binding: CompassFragmentBinding? = null
     private val binding get() = _binding!!
 
-    private lateinit var googlePlacesSelectedLocationLatLng: LatLng
+    private lateinit var destinationLatLng: LatLng
+    private lateinit var actualLatLng: LatLng
+
     private var animationLogicCounter = 0
 
-    //Sensor Global Variables
+    //Sensor Variables
     private var sensorManager: SensorManager? = null
     private var accelerometer: Sensor? = null
     private var magnetometer: Sensor? = null
@@ -61,61 +65,137 @@ class CompassFragment: Fragment(), FragmentListener, View.OnClickListener, Senso
     private var rotationVector: Sensor? = null
     private var haveSensorRotationVector = false
 
+    private val googlePlacesLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { activityResult->
+        if (activityResult.resultCode == RESULT_OK) {
+            val place = activityResult.data?.let { Autocomplete.getPlaceFromIntent(it) }
+            binding.tvActualSelectedDestination.text = requireContext().getString(R.string.actual_destination, place?.address)
+            destinationLatLng = place?.latLng!!
+            viewModel.calculateDistance(destinationLatLng, true)
+            animationLogicCounter = 0
+        } else {
+            Toast.makeText(
+                requireContext(),
+                "Oops, an error has occurred, please try again!",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+    private val requestLocationPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()){ permissions ->
+        var permissionCount = 0
+        permissions.entries.forEach{ singlePermission ->
+            if (singlePermission.value){
+                permissionCount++
+            }
+        }
+        if (permissionCount == 2){
+            viewModel.startLocationUpdates()
+        } else {
+            Toast.makeText(requireContext(), "Please go to settings and enable location permissions for this app.", Toast.LENGTH_LONG).show()
+        }
+    }
+
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = CompassFragmentBinding.inflate(layoutInflater)
         return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-
-        sensorManager = context?.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-
+        enableSensorManager()
         enableLocation()
+        initObservers()
+        startCompass()
+
+        binding.btnSetNewDestination.setOnClickListener {
+            val fields = listOf(Place.Field.ADDRESS, Place.Field.LAT_LNG, Place.Field.NAME)
+            val intent = Autocomplete.IntentBuilder(AutocompleteActivityMode.OVERLAY, fields).build(requireActivity())
+            googlePlacesLauncher.launch(intent)
+        }
+    }
+
+    private fun enableSensorManager() {
+        sensorManager = context?.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+    }
+
+    private fun initObservers() {
         with(viewModel){
-            listener = this@CompassFragment
-
-            viewModel.initializeGooglePlaces()
-
-            isLocationOnline.observe(viewLifecycleOwner, {
-                if (it){
-                    binding.pbProgressBar.isGone = true
-                    binding.btnSetNewDestination.isVisible = true
-                } else {
-                    binding.pbProgressBar.isVisible = true
-                    binding.btnSetNewDestination.isGone = true
-                }
-            })
-
             location.observe(viewLifecycleOwner, {
-                if (::googlePlacesSelectedLocationLatLng.isInitialized) {
+                actualLatLng = it
+                if (::destinationLatLng.isInitialized) {
                     if (animationLogicCounter == 0){
-                            YoYo.with(Techniques.SlideInDown).duration(1000).playOn(binding.tvDistanceFromDestination)
-                            binding.tvDistanceFromDestination.isVisible = true
-                            calculateDistance(googlePlacesSelectedLocationLatLng, false)
-                            binding.tvDistanceFromDestination.text = context?.getString(R.string.distance_from_destination, distance.value.toString())
-                            animationLogicCounter++
+                        YoYo.with(Techniques.SlideInDown).duration(1000).playOn(binding.tvDistanceFromDestination)
+                        binding.tvDistanceFromDestination.isVisible = true
+                        calculateDistance(destinationLatLng, false)
+                        binding.tvDistanceFromDestination.text = requireContext().getString(R.string.distance_from_destination, distance.value.toString())
+                        animationLogicCounter++
                     } else {
-                            binding.tvDistanceFromDestination.isVisible = true
-                            calculateDistance(googlePlacesSelectedLocationLatLng, false)
-                            binding.tvDistanceFromDestination.text = context?.getString(R.string.distance_from_destination, distance.value.toString())
+                        binding.tvDistanceFromDestination.isVisible = true
+                        calculateDistance(destinationLatLng, false)
+                        binding.tvDistanceFromDestination.text = requireContext().getString(R.string.distance_from_destination, distance.value.toString())
                     }
 
                 } else {
-                        YoYo.with(Techniques.FadeOut).duration(500).playOn(binding.tvDistanceFromDestination)
-                        binding.tvDistanceFromDestination.isGone = true
+                    YoYo.with(Techniques.FadeOut).duration(500).playOn(binding.tvDistanceFromDestination)
+                    binding.tvDistanceFromDestination.isGone = true
                 }
             })
 
+            lifecycleScope.launchWhenStarted {
+                viewState.collect{ viewState ->
+                    updateUI(viewState)
+                }
+            }
+
         }
-
-        startCompass()
-
-        binding.btnSetNewDestination.setOnClickListener(this)
     }
 
+    private fun updateUI(viewState: CompassViewState) {
+        with(binding){
+            pbProgressBar.isVisible = viewState.isLoading
+            btnSetNewDestination.isVisible = viewState.onSuccess
+
+
+            if (viewState.locationError) {
+                btnSetNewDestination.isGone = true
+                showLocationError(viewState.errorMessage)
+            }
+
+            if (viewState.googlePlacesError){
+                showGooglePlacesError()
+            }
+
+            if (viewState.onFailure){
+                showGenericError()
+            }
+        }
+    }
+
+    private fun showGenericError() {
+        val genericErrorDialog = ErrorDialog(requireContext(), null){}
+        genericErrorDialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        genericErrorDialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        genericErrorDialog.show()
+    }
+
+    private fun showGooglePlacesError() {
+        val genericErrorDialog = ErrorDialog(requireContext(), null){
+            viewModel.initializeGooglePlaces()
+        }
+        genericErrorDialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        genericErrorDialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        genericErrorDialog.show()
+    }
+
+    private fun showLocationError(errorMessage: String?) {
+        val locationErrorDialog = ErrorDialog(requireContext(), errorMessage) {
+            enableLocation()
+        }
+        locationErrorDialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        locationErrorDialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        locationErrorDialog.show()
+    }
 
     //Permission Logics
-    private fun isLocationPermissionGranted() = ContextCompat.checkSelfPermission((requireActivity()), android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(requireActivity(), android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    private fun isLocationPermissionGranted() = ContextCompat.checkSelfPermission((requireActivity()), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(requireActivity(), Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
     private fun enableLocation() {
         if (isLocationPermissionGranted()){
@@ -126,38 +206,20 @@ class CompassFragment: Fragment(), FragmentListener, View.OnClickListener, Senso
     }
 
     private fun requestLocationPermission() {
-        if (ActivityCompat.shouldShowRequestPermissionRationale(requireActivity(), android.Manifest.permission.ACCESS_FINE_LOCATION)){
+        if (ActivityCompat.shouldShowRequestPermissionRationale(requireActivity(), Manifest.permission.ACCESS_FINE_LOCATION)){
             Toast.makeText(context, "Please go to settings and enable location permissions.", Toast.LENGTH_LONG).show()
         } else {
-            requestPermissions(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION), REQUEST_LOCATION_CODE)
+            requestLocationPermissions.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
         }
     }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        when (requestCode){
-            REQUEST_LOCATION_CODE->{
-                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED){
-                    viewModel.startLocationUpdates()
-                } else {
-                    Toast.makeText(context, "To activate your location, please go to settings and enable location permissions.", Toast.LENGTH_LONG).show()
-                }
-            }
-            else ->{
-                Toast.makeText(
-                    context, "An error has occurred while requesting location permissions, please try again.", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-    //
 
     //Lifecycle Logics
     override fun onResume() {
         super.onResume()
-        viewModel.startLocationUpdates()
+        if (isLocationPermissionGranted()){
+            viewModel.startLocationUpdates()
+        }
+
         startCompass()
     }
 
@@ -168,68 +230,11 @@ class CompassFragment: Fragment(), FragmentListener, View.OnClickListener, Senso
     }
     //
 
-    //Fragment listener
-    override fun onStarted() {
-        binding.pbProgressBar.isVisible = true
-        binding.btnSetNewDestination.isGone = true
-    }
-
-    override fun onSuccess(string: String?) {
-        binding.pbProgressBar.isGone = true
-        binding.btnSetNewDestination.isVisible = true
-        if (!string.isNullOrEmpty())
-            Toast.makeText(context, string, Toast.LENGTH_SHORT).show()
-    }
-
-    override fun onFailure(string: String?) {
-        binding.pbProgressBar.isGone = true
-        binding.btnSetNewDestination.isVisible = true
-        Toast.makeText(context, string, Toast.LENGTH_SHORT).show()
-    }
-    //
-
-    override fun onClick(v: View?) {
-        when(v){
-            binding.btnSetNewDestination->{
-                val fields = listOf(Place.Field.ADDRESS, Place.Field.LAT_LNG, Place.Field.NAME)
-                val intent = Autocomplete.IntentBuilder(AutocompleteActivityMode.OVERLAY, fields).build(requireActivity())
-                startActivityForResult(intent, GOOGLE_PLACES_REQUEST_CODE)
-            }
-        }
-    }
-
-    private fun setCompass(latLng: LatLng) : String{
-        val builder = StringBuilder()
-        if (latLng.latitude < 0) builder.append("S ") else builder.append("N ")
-
-        val latitudeDegrees = Location.convert(abs(latLng.latitude), Location.FORMAT_SECONDS)
-        val latitudeSplit = latitudeDegrees.split((":").toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
-        builder.append(latitudeSplit[0])
-        builder.append("º")
-        builder.append(latitudeSplit[1])
-        builder.append("'")
-        builder.append(latitudeSplit[2])
-        builder.append("\"")
-        builder.append("\n")
-
-        if (latLng.longitude < 0 ) builder.append("W ") else builder.append("E ")
-        val longitudeDegrees = Location.convert(abs(latLng.longitude), Location.FORMAT_SECONDS)
-        val longitudeSplit = longitudeDegrees.split((":").toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
-
-        builder.append(longitudeSplit[0])
-        builder.append("º")
-        builder.append(longitudeSplit[1])
-        builder.append("'")
-        builder.append(longitudeSplit[2])
-        builder.append("\"")
-
-        return builder.toString()
-    }
 
     override fun onSensorChanged(event: SensorEvent) {
         val rotationMatrix = FloatArray(9)
         val orientation = FloatArray(3)
-        var azimuth: Int = 0
+        var azimuth = 0
         val lastAccelerometer = FloatArray(3)
         var lastAccelerometerSet = false
 
@@ -270,47 +275,73 @@ class CompassFragment: Fragment(), FragmentListener, View.OnClickListener, Senso
             else -> "N"
         }
         binding.tvDegrees.text = context?.getString(R.string.degrees_textview, azimuth.toString(), where)
-    }
 
-    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-
-    }
-
-    private fun startCompass() {
-        if (sensorManager!!.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR) == null){
-            if (sensorManager!!.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) == null || sensorManager!!.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD) == null){
-                noSensorDetected()
-            } else {
-                accelerometer = sensorManager!!.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-                magnetometer = sensorManager!!.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
-
-                haveSensorAccelerometer =
-                    sensorManager!!.registerListener(
-                        this,
-                        accelerometer,
-                        SensorManager.SENSOR_DELAY_UI
-                    )
-                haveSensorMagnetometer =
-                    sensorManager!!.registerListener(
-                        this,
-                        magnetometer,
-                        SensorManager.SENSOR_DELAY_UI
-                    )
-            }
-        } else {
-            rotationVector = sensorManager!!.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
-            haveSensorRotationVector = sensorManager!!.registerListener(this, rotationVector, SensorManager.SENSOR_DELAY_UI)
-
+        if (::actualLatLng.isInitialized && ::destinationLatLng.isInitialized){
+            binding.ivDestinationDirection.isVisible = true
+            val getDestinationBearing = azimuth - bearing()
+            binding.ivDestinationDirection.rotation = (getDestinationBearing.toFloat())
         }
     }
 
-    private fun stopCompass(){
-        if (haveSensorRotationVector) sensorManager!!.unregisterListener(this, rotationVector)
-        if (haveSensorAccelerometer) sensorManager!!.unregisterListener(this, accelerometer)
-        if (haveSensorMagnetometer) sensorManager!!.unregisterListener(this, magnetometer)
+    private fun bearing(): Double{
+        val latitude1 = Math.toRadians(actualLatLng.latitude)
+        val latitude2 = Math.toRadians(destinationLatLng.latitude)
+        val longDiff = Math.toRadians(destinationLatLng.longitude - actualLatLng.longitude)
+        val y = sin(longDiff) * cos(latitude2)
+        val x = cos(latitude1) * sin(latitude2) - sin(latitude1) * cos(latitude2) * cos(longDiff)
+
+        return (Math.toDegrees(atan2(y, x)) + 360) % 360
     }
 
-    private fun noSensorDetected() {
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+
+    private fun startCompass() {
+        sensorManager?.let { _sensorManager ->
+            if (_sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR) == null){
+                if (_sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) == null || _sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD) == null){
+                    noSensorDetectedError()
+                } else {
+                    accelerometer = _sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+                    magnetometer = _sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
+
+                    haveSensorAccelerometer =
+                        _sensorManager.registerListener(
+                            this,
+                            accelerometer,
+                            SensorManager.SENSOR_DELAY_UI
+                        )
+                    haveSensorMagnetometer =
+                        _sensorManager.registerListener(
+                            this,
+                            magnetometer,
+                            SensorManager.SENSOR_DELAY_UI
+                        )
+                }
+            } else {
+                rotationVector = _sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+                haveSensorRotationVector = _sensorManager.registerListener(this, rotationVector, SensorManager.SENSOR_DELAY_UI)
+
+            }
+        } ?: run {
+            Toast.makeText(
+                requireContext(),
+                "Oops, an error has occurred, please close the app and reopen it.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+
+    }
+
+    private fun stopCompass(){
+        sensorManager?.let { _sensorManager ->
+            if (haveSensorRotationVector) _sensorManager.unregisterListener(this, rotationVector)
+            if (haveSensorAccelerometer) _sensorManager.unregisterListener(this, accelerometer)
+            if (haveSensorMagnetometer) _sensorManager.unregisterListener(this, magnetometer)
+        }
+
+    }
+
+    private fun noSensorDetectedError() {
         val errorDialog = ErrorDialog(requireContext(), "Oops, seems like there is not a magnetic sensor in your phone, please try again!"){
             startCompass()
         }
@@ -318,20 +349,5 @@ class CompassFragment: Fragment(), FragmentListener, View.OnClickListener, Senso
         errorDialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         errorDialog.show()
     }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-
-        if (requestCode == GOOGLE_PLACES_REQUEST_CODE && resultCode == RESULT_OK){
-            val place = data?.let { Autocomplete.getPlaceFromIntent(it) }
-            binding.tvActualSelectedDestination.text = context?.getString(R.string.actual_destination, place?.address)
-            googlePlacesSelectedLocationLatLng = place?.latLng!!
-            viewModel.calculateDistance(googlePlacesSelectedLocationLatLng, true)
-            animationLogicCounter = 0
-        } else {
-            Toast.makeText(context, "Oops, an error has occurred, please try again!", Toast.LENGTH_LONG).show()
-        }
-    }
-
 
 }

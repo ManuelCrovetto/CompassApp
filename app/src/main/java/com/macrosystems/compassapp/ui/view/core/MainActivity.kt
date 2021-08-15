@@ -1,10 +1,9 @@
-package com.macrosystems.compassapp.ui.core
+package com.macrosystems.compassapp.ui.view.core
 
 import android.os.Bundle
 
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.navigation.findNavController
 import com.macrosystems.compassapp.R
 import com.macrosystems.compassapp.databinding.ActivityMainBinding
 import dagger.hilt.android.AndroidEntryPoint

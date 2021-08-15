@@ -1,8 +1,5 @@
 package com.macrosystems.compassapp.data.network
 
-import android.app.Activity
-import android.content.Context
-import android.location.Location
 import androidx.lifecycle.MutableLiveData
 import com.google.android.gms.maps.model.LatLng
 

@@ -1,19 +1,18 @@
 package com.macrosystems.compassapp.ui.viewmodel
 
-import android.app.Activity
-import android.content.Context
-import android.widget.Toast
+import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.maps.model.LatLng
 import com.macrosystems.compassapp.data.model.Constants.Companion.TIME_OUT_FOR_GETTING_LOCATION
 import com.macrosystems.compassapp.data.network.Repository
-
 import com.macrosystems.compassapp.data.network.Result
-import com.macrosystems.compassapp.ui.core.interfaces.FragmentListener
+import com.macrosystems.compassapp.ui.view.CompassViewState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -22,12 +21,22 @@ import javax.inject.Inject
 @HiltViewModel
 class CompassFragmentViewModel @Inject constructor(private val repository: Repository): ViewModel() {
 
-    var listener: FragmentListener? = null
+    private val _location: MutableLiveData<LatLng> = MutableLiveData()
+    val location: LiveData<LatLng>
+        get() = _location
 
-    var isLocationOnline: MutableLiveData<Boolean> = MutableLiveData()
-    var location: MutableLiveData<LatLng> = MutableLiveData()
-    var distance: MutableLiveData<Int> = MutableLiveData()
 
+    private val _distance: MutableLiveData<Int> = MutableLiveData()
+    val distance: LiveData<Int>
+        get() = _distance
+
+    private val _viewState = MutableStateFlow(CompassViewState())
+    val viewState: StateFlow<CompassViewState>
+        get() = _viewState
+
+    init {
+        initializeGooglePlaces()
+    }
 
     fun startLocationUpdates(){
         viewModelScope.launch {
@@ -37,18 +46,16 @@ class CompassFragmentViewModel @Inject constructor(private val repository: Repos
                     repository.startLocationUpdates()
                 }
             }
-            isLocationOnline.value = false
+            _viewState.value = CompassViewState(isLoading = true)
             result?.observeForever {
                 it?.let {
-
-                    location.postValue(it)
-                    isLocationOnline.value = true
+                    _location.postValue(it)
+                    _viewState.value = CompassViewState(isLoading = false, onSuccess = true)
                 } ?: run {
-                    listener?.onFailure("Oops, an error has occurred while getting your location, please try again.")
-                    isLocationOnline.value = false
+                    _viewState.value = CompassViewState(isLoading = false, locationError = true, errorMessage = "Oops, an error has occurred while getting your location, please try again.")
                 }
             } ?: run {
-                listener?.onFailure("Oops, an error has occurred while getting your location, please try again.")
+                _viewState.value = CompassViewState(isLoading = false, locationError = true, errorMessage = "Oops, an error has occurred while getting your location, please try again.")
 
             }
         }
@@ -62,20 +69,18 @@ class CompassFragmentViewModel @Inject constructor(private val repository: Repos
         }
     }
 
-
     fun initializeGooglePlaces(){
-        listener?.onStarted()
-
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO){
                 repository.initializeGooglePlaces()
             }
+            _viewState.value = CompassViewState(isLoading = true)
             when (result){
                 is Result.OnSuccess->{
                     if (result.data){
-                        listener?.onSuccess(null)
+                        _viewState.value = CompassViewState(isLoading = false, onSuccess = true)
                     } else {
-                        listener?.onFailure("Oops, an error has occurred while getting address, please try again.")
+                        _viewState.value = CompassViewState(isLoading = false, googlePlacesError = true)
                     }
                 }
                 else->{}
@@ -86,18 +91,19 @@ class CompassFragmentViewModel @Inject constructor(private val repository: Repos
 
     fun calculateDistance(destinationLatLng: LatLng, isFirstQueryOfThisDestination: Boolean){
         if (isFirstQueryOfThisDestination){
-            listener?.onStarted()
+
             viewModelScope.launch {
                 val result = withContext(Dispatchers.IO){
                     repository.calculateDistance(destinationLatLng)
                 }
+                _viewState.value = CompassViewState(isLoading = true)
                 when (result){
                     is Result.OnSuccess->{
-                        distance.postValue(result.data)
-                        listener?.onSuccess(null)
+                        _distance.postValue(result.data)
+                        _viewState.value = CompassViewState(isLoading = false, onSuccess = true)
                     }
                     else->{
-                        listener?.onFailure("Error occurred, please try again.")
+                        _viewState.value = CompassViewState(isLoading = false, onFailure = true)
                     }
                 }
             }
@@ -109,11 +115,11 @@ class CompassFragmentViewModel @Inject constructor(private val repository: Repos
 
                 when (result){
                     is Result.OnSuccess->{
-                        distance.postValue(result.data)
-                        listener?.onSuccess(null)
+                        _distance.postValue(result.data)
+                        _viewState.value = CompassViewState(isLoading = false, onSuccess = true)
                     }
                     else->{
-                        listener?.onFailure("Error occurred, please try again.")
+                        _viewState.value = CompassViewState(isLoading = false, onFailure = true)
                     }
                 }
             }

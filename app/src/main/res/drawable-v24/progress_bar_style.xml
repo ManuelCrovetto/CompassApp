@@ -7,8 +7,6 @@
     android:pivotY="50%"
     android:toDegrees="1080">
 
-    <!--shape tag is used to
-        build a shape in XML-->
     <shape
         android:innerRadiusRatio="3"
         android:shape="ring"
