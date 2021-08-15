@@ -21,7 +21,7 @@ the bearing to follow for reaching your final destination. You can aswell have a
   * Android Material
   * YoYo animations
   
-  ## Services & REST API Calls
+  ## Services
   * Google Maps, Google Places & Play Services
   
   ##Persistence
