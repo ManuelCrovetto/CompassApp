@@ -9,5 +9,6 @@
     <string name="loading_distance_to_destination_default_placeholder">Loading distance to destination…</string>
     <string name="error_dialog_text_default_placeholder">Oops, an error occurred, try again later please!</string>
     <string name="ok_text_default_button_placeholder">OK</string>
-
+    <string name="mapKey" translatable="false" templateMergeStrategy="preserve">AIzaSyARWiudCoI-6WJJpN4k4bZYQ22zuoYYFVk</string>
+    <string name="go_back_button_placeholder">Go Back</string>
 </resources>

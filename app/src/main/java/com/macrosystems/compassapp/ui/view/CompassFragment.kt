@@ -3,6 +3,7 @@ package com.macrosystems.compassapp.ui.view
 import android.Manifest
 import android.app.Activity.RESULT_OK
 import android.content.Context
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
@@ -24,15 +25,17 @@ import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
 import com.daimajia.androidanimations.library.Techniques
 import com.daimajia.androidanimations.library.YoYo
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.libraries.places.api.model.Place
-
 import com.google.android.libraries.places.widget.Autocomplete
 import com.google.android.libraries.places.widget.model.AutocompleteActivityMode
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.macrosystems.compassapp.R
-
+import com.macrosystems.compassapp.data.model.NavigationDetails
 import com.macrosystems.compassapp.databinding.CompassFragmentBinding
 import com.macrosystems.compassapp.ui.view.dialogs.ErrorDialog
 import com.macrosystems.compassapp.ui.viewmodel.CompassFragmentViewModel
@@ -53,6 +56,8 @@ class CompassFragment: Fragment(), SensorEventListener {
 
     private lateinit var destinationLatLng: LatLng
     private lateinit var actualLatLng: LatLng
+    private lateinit var destinationAddress: String
+    private var getDestinationBearing: Double = 0.0
 
     private var animationLogicCounter = 0
 
@@ -68,6 +73,7 @@ class CompassFragment: Fragment(), SensorEventListener {
     private val googlePlacesLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { activityResult->
         if (activityResult.resultCode == RESULT_OK) {
             val place = activityResult.data?.let { Autocomplete.getPlaceFromIntent(it) }
+            destinationAddress = place?.address.toString()
             binding.tvActualSelectedDestination.text = requireContext().getString(R.string.actual_destination, place?.address)
             destinationLatLng = place?.latLng!!
             viewModel.calculateDistance(destinationLatLng, true)
@@ -75,8 +81,8 @@ class CompassFragment: Fragment(), SensorEventListener {
         } else {
             Toast.makeText(
                 requireContext(),
-                "Oops, an error has occurred, please try again!",
-                Toast.LENGTH_LONG
+                "Setting destination cancelled",
+                Toast.LENGTH_SHORT
             ).show()
         }
     }
@@ -104,11 +110,23 @@ class CompassFragment: Fragment(), SensorEventListener {
         enableLocation()
         initObservers()
         startCompass()
+        setUpListeners()
+        loadNavigationDetailsFromPersistence()
 
+    }
+
+    private fun setUpListeners() {
         binding.btnSetNewDestination.setOnClickListener {
             val fields = listOf(Place.Field.ADDRESS, Place.Field.LAT_LNG, Place.Field.NAME)
             val intent = Autocomplete.IntentBuilder(AutocompleteActivityMode.OVERLAY, fields).build(requireActivity())
             googlePlacesLauncher.launch(intent)
+        }
+
+        binding.tvDistanceFromDestination.setOnClickListener {
+            if (::destinationLatLng.isInitialized && ::destinationAddress.isInitialized){
+                val action = CompassFragmentDirections.actionCompassFragmentToMapFragment(destinationLatLng.latitude.toString(), destinationLatLng.longitude.toString(), destinationAddress)
+                findNavController().navigate(action)
+            }
         }
     }
 
@@ -227,6 +245,7 @@ class CompassFragment: Fragment(), SensorEventListener {
         super.onPause()
         viewModel.stopLocationUpdates()
         stopCompass()
+        saveNavigationOnPersistence()
     }
     //
 
@@ -278,7 +297,7 @@ class CompassFragment: Fragment(), SensorEventListener {
 
         if (::actualLatLng.isInitialized && ::destinationLatLng.isInitialized){
             binding.ivDestinationDirection.isVisible = true
-            val getDestinationBearing = azimuth - bearing()
+           getDestinationBearing = azimuth - bearing()
             binding.ivDestinationDirection.rotation = (getDestinationBearing.toFloat())
         }
     }
@@ -348,6 +367,31 @@ class CompassFragment: Fragment(), SensorEventListener {
         errorDialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
         errorDialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         errorDialog.show()
+    }
+
+    private fun saveNavigationOnPersistence(){
+        if (::actualLatLng.isInitialized && ::destinationLatLng.isInitialized && ::destinationAddress.isInitialized){
+            val sharedPreferences = requireActivity().getSharedPreferences("sharedPreferences", Context.MODE_PRIVATE)
+            val editor: SharedPreferences.Editor = sharedPreferences.edit()
+            val gson = Gson()
+            val json = gson.toJson(NavigationDetails(destinationAddress, actualLatLng, destinationLatLng))
+            editor.putString("navDetails", json)
+            editor.apply()
+        }
+    }
+
+    private fun loadNavigationDetailsFromPersistence(){
+        val sharedPreferences = requireActivity().getSharedPreferences("sharedPreferences", Context.MODE_PRIVATE)
+        val gson = Gson()
+        val json = sharedPreferences.getString("navDetails", null)
+        val type = object : TypeToken<NavigationDetails?>() {}.type
+        val navigationDetails = gson.fromJson<NavigationDetails>(json, type)
+        navigationDetails?.let {
+            actualLatLng = it.actualLatLng
+            destinationLatLng = it.destinationLatLng
+            destinationAddress = it.destinationAddress
+            binding.tvActualSelectedDestination.text = it.destinationAddress
+        }
     }
 
 }

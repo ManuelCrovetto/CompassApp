@@ -9,4 +9,5 @@ interface Repository {
     suspend fun stopLocationUpdates()
     suspend fun startLocationUpdates(): MutableLiveData<LatLng?>
     suspend fun calculateDistance(destinationLatLng: LatLng): Result<Int>
+
 }

@@ -9,9 +9,39 @@
         android:id="@+id/compassFragment"
         android:name="com.macrosystems.compassapp.ui.view.CompassFragment"
         android:label="CompassFragment"
-        tools:layout="@layout/compass_fragment"/>
+        tools:layout="@layout/compass_fragment">
+        <action
+            android:id="@+id/action_compassFragment_to_mapFragment"
+            app:destination="@id/mapFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right"/>
+    </fragment>
     <activity
         android:id="@+id/mainActivity"
         android:name="com.macrosystems.compassapp.ui.view.core.MainActivity"
         android:label="MainActivity" />
+    <fragment
+        android:id="@+id/mapFragment"
+        android:name="com.macrosystems.compassapp.ui.view.MapFragment"
+        android:label="MapFragment"
+        tools:layout="@layout/map_fragment">
+        <argument
+            android:name="latitue"
+            app:argType="string" />
+        <argument
+            android:name="longitude"
+            app:argType="string" />
+        <argument
+            android:name="destinationName"
+            app:argType="string" />
+        <action
+            android:id="@+id/action_mapFragment_to_compassFragment"
+            app:destination="@id/compassFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right"/>
+    </fragment>
 </navigation>

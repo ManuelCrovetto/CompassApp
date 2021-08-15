@@ -25,7 +25,6 @@ class CompassFragmentViewModel @Inject constructor(private val repository: Repos
     val location: LiveData<LatLng>
         get() = _location
 
-
     private val _distance: MutableLiveData<Int> = MutableLiveData()
     val distance: LiveData<Int>
         get() = _distance
@@ -78,7 +77,7 @@ class CompassFragmentViewModel @Inject constructor(private val repository: Repos
             when (result){
                 is Result.OnSuccess->{
                     if (result.data){
-                        _viewState.value = CompassViewState(isLoading = false, onSuccess = true)
+                        _viewState.value = CompassViewState(isLoading = false)
                     } else {
                         _viewState.value = CompassViewState(isLoading = false, googlePlacesError = true)
                     }
