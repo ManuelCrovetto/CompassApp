@@ -3,7 +3,6 @@ package com.macrosystems.compassapp.ui.view
 import android.Manifest
 import android.app.Activity.RESULT_OK
 import android.content.Context
-import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
@@ -32,8 +31,6 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.android.libraries.places.api.model.Place
 import com.google.android.libraries.places.widget.Autocomplete
 import com.google.android.libraries.places.widget.model.AutocompleteActivityMode
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import com.macrosystems.compassapp.R
 import com.macrosystems.compassapp.data.model.NavigationDetails
 import com.macrosystems.compassapp.databinding.CompassFragmentBinding
@@ -111,7 +108,6 @@ class CompassFragment: Fragment(), SensorEventListener {
         initObservers()
         startCompass()
         setUpListeners()
-        loadNavigationDetailsFromPersistence()
 
     }
 
@@ -155,6 +151,13 @@ class CompassFragment: Fragment(), SensorEventListener {
                     YoYo.with(Techniques.FadeOut).duration(500).playOn(binding.tvDistanceFromDestination)
                     binding.tvDistanceFromDestination.isGone = true
                 }
+            })
+
+            savedNavigationDetails.observe(viewLifecycleOwner, {
+                actualLatLng = it.actualLatLng
+                destinationLatLng = it.destinationLatLng
+                destinationAddress = it.destinationAddress
+                binding.tvActualSelectedDestination.text = it.destinationAddress
             })
 
             lifecycleScope.launchWhenStarted {
@@ -371,26 +374,7 @@ class CompassFragment: Fragment(), SensorEventListener {
 
     private fun saveNavigationOnPersistence(){
         if (::actualLatLng.isInitialized && ::destinationLatLng.isInitialized && ::destinationAddress.isInitialized){
-            val sharedPreferences = requireActivity().getSharedPreferences("sharedPreferences", Context.MODE_PRIVATE)
-            val editor: SharedPreferences.Editor = sharedPreferences.edit()
-            val gson = Gson()
-            val json = gson.toJson(NavigationDetails(destinationAddress, actualLatLng, destinationLatLng))
-            editor.putString("navDetails", json)
-            editor.apply()
-        }
-    }
-
-    private fun loadNavigationDetailsFromPersistence(){
-        val sharedPreferences = requireActivity().getSharedPreferences("sharedPreferences", Context.MODE_PRIVATE)
-        val gson = Gson()
-        val json = sharedPreferences.getString("navDetails", null)
-        val type = object : TypeToken<NavigationDetails?>() {}.type
-        val navigationDetails = gson.fromJson<NavigationDetails>(json, type)
-        navigationDetails?.let {
-            actualLatLng = it.actualLatLng
-            destinationLatLng = it.destinationLatLng
-            destinationAddress = it.destinationAddress
-            binding.tvActualSelectedDestination.text = it.destinationAddress
+            viewModel.saveNavigationDetails(NavigationDetails(destinationAddress, actualLatLng, destinationLatLng))
         }
     }
 

@@ -6,7 +6,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.maps.model.LatLng
 import com.macrosystems.compassapp.data.model.Constants.Companion.TIME_OUT_FOR_GETTING_LOCATION
-import com.macrosystems.compassapp.data.network.Repository
+import com.macrosystems.compassapp.data.model.NavigationDetails
+import com.macrosystems.compassapp.data.network.repository.Repository
 import com.macrosystems.compassapp.data.network.Result
 import com.macrosystems.compassapp.ui.view.CompassViewState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -20,6 +21,10 @@ import javax.inject.Inject
 
 @HiltViewModel
 class CompassFragmentViewModel @Inject constructor(private val repository: Repository): ViewModel() {
+
+    private val _savedNavigationDetails: MutableLiveData<NavigationDetails> = MutableLiveData()
+    val savedNavigationDetails: LiveData<NavigationDetails>
+        get() = _savedNavigationDetails
 
     private val _location: MutableLiveData<LatLng> = MutableLiveData()
     val location: LiveData<LatLng>
@@ -35,6 +40,7 @@ class CompassFragmentViewModel @Inject constructor(private val repository: Repos
 
     init {
         initializeGooglePlaces()
+        loadNavigationDetails()
     }
 
     fun startLocationUpdates(){
@@ -123,8 +129,28 @@ class CompassFragmentViewModel @Inject constructor(private val repository: Repos
                 }
             }
         }
+    }
 
+    fun saveNavigationDetails(navigationDetails: NavigationDetails){
+        viewModelScope.launch {
+            withContext(Dispatchers.IO){
+                repository.saveNavigationDetailsInPersistence(navigationDetails)
+            }
+        }
+    }
 
+    private fun loadNavigationDetails(){
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO){
+                repository.loadNavigationDetails()
+            }
+            when (result){
+                is Result.OnSuccess->{
+                    _savedNavigationDetails.value = result.data
+                }
+                else ->{}
+            }
+        }
     }
 
 }

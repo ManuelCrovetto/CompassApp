@@ -1,8 +1,9 @@
 package com.macrosystems.compassapp.di
 
 import android.content.Context
-import com.macrosystems.compassapp.data.network.Repository
+import com.macrosystems.compassapp.data.network.repository.Repository
 import com.macrosystems.compassapp.data.network.RepositoryImpl
+import com.macrosystems.compassapp.data.network.persistence.Persistence
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -16,8 +17,12 @@ object DataModule {
 
     @Provides
     @Singleton
-    fun providesRepository(@ApplicationContext appContext: Context): Repository {
-        return RepositoryImpl(appContext)
+    fun providesPersistence(@ApplicationContext appContext: Context) = Persistence(appContext)
+
+    @Provides
+    @Singleton
+    fun providesRepository(@ApplicationContext appContext: Context, persistence: Persistence): Repository {
+        return RepositoryImpl(appContext, persistence)
     }
 
 }

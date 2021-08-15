@@ -11,13 +11,17 @@ import com.google.android.gms.location.LocationRequest.PRIORITY_HIGH_ACCURACY
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.libraries.places.api.Places
 import com.macrosystems.compassapp.data.model.Constants.Companion.GOOGLE_PLACES_API_KEY
+import com.macrosystems.compassapp.data.model.NavigationDetails
+import com.macrosystems.compassapp.data.network.persistence.Persistence
+import com.macrosystems.compassapp.data.network.repository.Repository
 
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.tasks.await
 import java.lang.Exception
 import javax.inject.Inject
 
-class RepositoryImpl @Inject constructor(@ApplicationContext private val context: Context): Repository {
+class RepositoryImpl @Inject constructor(@ApplicationContext private val context: Context, private val persistence: Persistence):
+    Repository {
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationRequest: LocationRequest
@@ -87,6 +91,26 @@ class RepositoryImpl @Inject constructor(@ApplicationContext private val context
             Result.OnError(null)
         }
 
+    }
+
+    override suspend fun saveNavigationDetailsInPersistence(navigationDetails: NavigationDetails) {
+        try {
+            persistence.saveNavigationOnPersistence(navigationDetails)
+        } catch (e: Exception){
+            e.printStackTrace()
+        }
+    }
+
+    override suspend fun loadNavigationDetails(): Result<NavigationDetails> {
+        try {
+            persistence.loadNavigationDetailsFromPersistence()?.let {
+                return Result.OnSuccess(it)
+            } ?: run {
+                return Result.OnError(null)
+            }
+        } catch (e: Exception){
+            return Result.OnError(null)
+        }
     }
 
     override suspend fun initializeGooglePlaces(): Result<Boolean> {
