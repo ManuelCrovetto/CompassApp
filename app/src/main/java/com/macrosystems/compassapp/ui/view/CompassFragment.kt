@@ -143,7 +143,7 @@ class CompassFragment: Fragment(), SensorEventListener {
                         YoYo.with(Techniques.SlideInDown).duration(1000).playOn(binding.tvDistanceFromDestination)
                         binding.tvDistanceFromDestination.isVisible = true
                         calculateDistance(destinationLatLng, false)
-                        binding.tvDistanceFromDestination.text = requireContext().getString(R.string.distance_from_destination, distance.value.toString())
+                        binding.tvDistanceFromDestination.text = requireContext().getString(R.string.distance_from_destination, distance.value ?: "loading...")
                         animationLogicCounter++
                     } else {
                         binding.tvDistanceFromDestination.isVisible = true
