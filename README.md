@@ -1,7 +1,7 @@
 # Compass App Release Notes
 
 ### Introduction:
-Compass App is a Native Android Application written in 95% in Kotlin, except for some class written in Java, this app can be used to set a destination and the compass will give you
+Compass App is a Native Android Application written in 92% in Kotlin, except for some class written in Java, this app can be used to set a destination and the compass will give you
 the bearing to follow for reaching your final destination. You can aswell have a look at a map where your destination is located. Pretty simple and usefull app.
 
 ### Libraries/Components I used for Compass App:
@@ -24,7 +24,7 @@ the bearing to follow for reaching your final destination. You can aswell have a
   ## Services
   * Google Maps, Google Places & Play Services
   
-  ##Persistence
+  ## Persistence
   * SharedPreferences
   
   ## Code Optimization
