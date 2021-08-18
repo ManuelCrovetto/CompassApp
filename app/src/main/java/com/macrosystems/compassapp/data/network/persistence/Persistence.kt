@@ -8,10 +8,10 @@ import com.macrosystems.compassapp.data.model.NavigationDetails
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
-class Persistence @Inject constructor(@ApplicationContext private val appContext: Context) {
+class Persistence @Inject constructor(@ApplicationContext private val context: Context) {
 
     fun saveNavigationOnPersistence(navigationDetails: NavigationDetails) {
-        val sharedPreferences = appContext.getSharedPreferences("sharedPreferences", Context.MODE_PRIVATE)
+        val sharedPreferences = context.getSharedPreferences("sharedPreferences", Context.MODE_PRIVATE)
         val editor: SharedPreferences.Editor = sharedPreferences.edit()
         val gson = Gson()
         val json = gson.toJson(NavigationDetails(navigationDetails.destinationAddress, navigationDetails.actualLatLng, navigationDetails.destinationLatLng))
@@ -20,7 +20,7 @@ class Persistence @Inject constructor(@ApplicationContext private val appContext
     }
 
     fun loadNavigationDetailsFromPersistence(): NavigationDetails?{
-        val sharedPreferences = appContext.getSharedPreferences("sharedPreferences", Context.MODE_PRIVATE)
+        val sharedPreferences = context.getSharedPreferences("sharedPreferences", Context.MODE_PRIVATE)
         val gson = Gson()
         val json = sharedPreferences.getString("navDetails", null)
         val type = object : TypeToken<NavigationDetails?>() {}.type

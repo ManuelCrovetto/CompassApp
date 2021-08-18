@@ -29,9 +29,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
     private String destinationAddress;
     private NavController navController;
 
-    public MapFragment(){
-
-    }
+    public MapFragment(){}
 
     @Nullable
     @Override

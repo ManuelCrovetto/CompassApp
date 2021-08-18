@@ -1,4 +1,4 @@
-package com.macrosystems.compassapp.data.network
+package com.macrosystems.compassapp.data.response
 
 import java.lang.Exception
 

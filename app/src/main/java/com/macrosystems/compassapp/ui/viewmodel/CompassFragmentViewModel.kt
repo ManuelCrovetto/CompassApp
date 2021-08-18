@@ -5,10 +5,18 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.maps.model.LatLng
+import com.macrosystems.compassapp.data.model.CompassData
 import com.macrosystems.compassapp.data.model.Constants.Companion.TIME_OUT_FOR_GETTING_LOCATION
 import com.macrosystems.compassapp.data.model.NavigationDetails
-import com.macrosystems.compassapp.data.network.repository.Repository
-import com.macrosystems.compassapp.data.network.Result
+import com.macrosystems.compassapp.data.response.Result
+import com.macrosystems.compassapp.domain.compass.StartCompassUseCase
+import com.macrosystems.compassapp.domain.compass.StopCompassUseCase
+import com.macrosystems.compassapp.domain.googleplaces.InitializeGooglePlacesUseCase
+import com.macrosystems.compassapp.domain.location.CalculateDistanceUseCase
+import com.macrosystems.compassapp.domain.location.StartLocationUpdatesUseCase
+import com.macrosystems.compassapp.domain.location.StopLocationUpdatesUseCase
+import com.macrosystems.compassapp.domain.persistence.LoadNavigationDetailsPersistenceUseCase
+import com.macrosystems.compassapp.domain.persistence.SaveNavigationDetailsPersistenceUseCase
 import com.macrosystems.compassapp.ui.view.CompassViewState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -20,7 +28,15 @@ import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 @HiltViewModel
-class CompassFragmentViewModel @Inject constructor(private val repository: Repository): ViewModel() {
+class CompassFragmentViewModel @Inject constructor(private val startLocationUpdatesUseCase: StartLocationUpdatesUseCase,
+                                                   private val stopLocationUpdatesUseCase: StopLocationUpdatesUseCase,
+                                                   private val calculateDistanceUseCase: CalculateDistanceUseCase,
+                                                   private val googlePlacesUseCase: InitializeGooglePlacesUseCase,
+                                                   private val saveNavigationDetailsPersistenceUseCase: SaveNavigationDetailsPersistenceUseCase,
+                                                   private val loadNavigationDetailsPersistenceUseCase: LoadNavigationDetailsPersistenceUseCase,
+                                                   private val startCompassUseCase: StartCompassUseCase,
+                                                   private val stopCompassUseCase: StopCompassUseCase
+): ViewModel() {
 
     private val _savedNavigationDetails: MutableLiveData<NavigationDetails> = MutableLiveData()
     val savedNavigationDetails: LiveData<NavigationDetails>
@@ -38,17 +54,21 @@ class CompassFragmentViewModel @Inject constructor(private val repository: Repos
     val viewState: StateFlow<CompassViewState>
         get() = _viewState
 
+    private val _compassData: MutableLiveData<CompassData> = MutableLiveData()
+    val compassData: LiveData<CompassData>
+        get() = _compassData
+
     init {
         initializeGooglePlaces()
         loadNavigationDetails()
+        startCompass()
     }
 
     fun startLocationUpdates(){
         viewModelScope.launch {
-
-            val result = withContext(Dispatchers.IO){
+            val result: MutableLiveData<LatLng?>? = withContext(Dispatchers.IO){
                 withTimeoutOrNull(TIME_OUT_FOR_GETTING_LOCATION){
-                    repository.startLocationUpdates()
+                    startLocationUpdatesUseCase()
                 }
             }
             _viewState.value = CompassViewState(isLoading = true)
@@ -61,7 +81,6 @@ class CompassFragmentViewModel @Inject constructor(private val repository: Repos
                 }
             } ?: run {
                 _viewState.value = CompassViewState(isLoading = false, locationError = true, errorMessage = "Oops, an error has occurred while getting your location, please try again.")
-
             }
         }
     }
@@ -69,7 +88,7 @@ class CompassFragmentViewModel @Inject constructor(private val repository: Repos
     fun stopLocationUpdates(){
         viewModelScope.launch {
             withContext(Dispatchers.IO){
-                repository.stopLocationUpdates()
+                stopLocationUpdatesUseCase()
             }
         }
     }
@@ -77,7 +96,7 @@ class CompassFragmentViewModel @Inject constructor(private val repository: Repos
     fun initializeGooglePlaces(){
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO){
-                repository.initializeGooglePlaces()
+                googlePlacesUseCase()
             }
             _viewState.value = CompassViewState(isLoading = true)
             when (result){
@@ -96,10 +115,9 @@ class CompassFragmentViewModel @Inject constructor(private val repository: Repos
 
     fun calculateDistance(destinationLatLng: LatLng, isFirstQueryOfThisDestination: Boolean){
         if (isFirstQueryOfThisDestination){
-
             viewModelScope.launch {
                 val result = withContext(Dispatchers.IO){
-                    repository.calculateDistance(destinationLatLng)
+                    calculateDistanceUseCase(destinationLatLng = destinationLatLng)
                 }
                 _viewState.value = CompassViewState(isLoading = true)
                 when (result){
@@ -115,7 +133,7 @@ class CompassFragmentViewModel @Inject constructor(private val repository: Repos
         } else {
             viewModelScope.launch {
                 val result = withContext(Dispatchers.IO){
-                    repository.calculateDistance(destinationLatLng)
+                    calculateDistanceUseCase(destinationLatLng = destinationLatLng)
                 }
 
                 when (result){
@@ -131,10 +149,33 @@ class CompassFragmentViewModel @Inject constructor(private val repository: Repos
         }
     }
 
+    fun startCompass(){
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.Main){
+                startCompassUseCase()
+            }
+            result.observeForever { compassData->
+                if (compassData.error){
+                    _viewState.value = CompassViewState(compassSensorError = true)
+                } else {
+                    _compassData.value = compassData
+                }
+            }
+        }
+    }
+
+    fun stopCompass(){
+        viewModelScope.launch {
+            withContext(Dispatchers.Main){
+                stopCompassUseCase()
+            }
+        }
+    }
+
     fun saveNavigationDetails(navigationDetails: NavigationDetails){
         viewModelScope.launch {
             withContext(Dispatchers.IO){
-                repository.saveNavigationDetailsInPersistence(navigationDetails)
+                saveNavigationDetailsPersistenceUseCase.invoke(navigationDetails = navigationDetails)
             }
         }
     }
@@ -142,7 +183,7 @@ class CompassFragmentViewModel @Inject constructor(private val repository: Repos
     private fun loadNavigationDetails(){
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO){
-                repository.loadNavigationDetails()
+                loadNavigationDetailsPersistenceUseCase.invoke()
             }
             when (result){
                 is Result.OnSuccess->{

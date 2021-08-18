@@ -1,4 +1,4 @@
-package com.macrosystems.compassapp.ui.core
+package com.macrosystems.compassapp.core.utils
 
 import android.content.Context
 import android.net.ConnectivityManager

@@ -11,7 +11,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import com.google.android.material.snackbar.Snackbar
 import com.macrosystems.compassapp.R
 import com.macrosystems.compassapp.databinding.ActivityMainBinding
-import com.macrosystems.compassapp.ui.core.ConnectionStatusLiveData
+import com.macrosystems.compassapp.core.utils.ConnectionStatusLiveData
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
