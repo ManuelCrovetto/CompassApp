@@ -16,7 +16,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.CompassApp">
 
-        <meta-data android:name="com.google.android.geo.API_KEY" android:value="@string/mapKey"/>
+        <meta-data android:name="com.google.android.geo.API_KEY" android:value="@string/google_maps_key"/>
 
         <activity android:name=".ui.view.core.MainActivity"
             android:configChanges="orientation|screenSize"

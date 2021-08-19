@@ -25,7 +25,13 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    def localProperties = new Properties()
+    localProperties.load(new FileInputStream(rootProject.file("local.properties")))
+
     buildTypes {
+        debug {
+            resValue("string", "google_maps_key", localProperties.getProperty("googleMapsApiKey"))
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
@@ -38,6 +44,8 @@ android {
     kotlinOptions {
         jvmTarget = '1.8'
     }
+
+
 }
 
 dependencies {
