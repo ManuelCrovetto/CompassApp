@@ -25,7 +25,7 @@ the bearing to follow for reaching your final destination. You can aswell have a
   * Google Maps, Google Places & Play Services
   
   ## Persistence
-  * SharedPreferences
+  * Room
   
   ## Code Optimization
   * Proguard
