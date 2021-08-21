@@ -20,3 +20,4 @@
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
 -keep class com.macrosystems.compassapp.data.model.** {*;}
+-keep class com.macrosystems.compassapp.data.local.** {*;}

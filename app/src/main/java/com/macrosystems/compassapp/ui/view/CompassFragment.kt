@@ -67,6 +67,7 @@ class CompassFragment: Fragment(){
             destinationLatLng = place?.latLng!!
             viewModel.calculateDistance(destinationLatLng, true)
             animationLogicCounter = 0
+            viewModel.deleteLastLocation()
         } else {
             requireActivity().shortToast("Setting destination cancelled")
         }
@@ -136,11 +137,13 @@ class CompassFragment: Fragment(){
                 }
             })
 
+
             savedNavigationDetails.observe(viewLifecycleOwner, {
                 actualLatLng = it.actualLatLng
                 destinationLatLng = it.destinationLatLng
                 destinationAddress = it.destinationAddress
-                binding.tvActualSelectedDestination.text = it.destinationAddress
+                binding.tvActualSelectedDestination.text = getString(R.string.actual_destination, it.destinationAddress)
+
             })
 
             compassData.observe(viewLifecycleOwner, {
@@ -267,7 +270,7 @@ class CompassFragment: Fragment(){
 
     private fun saveNavigationOnPersistence(){
         if (::actualLatLng.isInitialized && ::destinationLatLng.isInitialized && ::destinationAddress.isInitialized){
-            viewModel.saveNavigationDetails(NavigationDetails(destinationAddress, actualLatLng, destinationLatLng))
+            viewModel.saveNavigationDetailsToLocalDB(NavigationDetails(destinationAddress, actualLatLng, destinationLatLng))
         }
     }
 
