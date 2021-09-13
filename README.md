@@ -26,6 +26,9 @@ the bearing to follow for reaching your final destination. You can aswell have a
   
   ## Persistence
   * Room
+
+  # Testing
+  * Espresso
   
   ## Code Optimization
   * Proguard
