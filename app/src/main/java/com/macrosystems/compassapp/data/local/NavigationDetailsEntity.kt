@@ -7,4 +7,9 @@ import androidx.room.PrimaryKey
 
 @Keep
 @Entity(tableName = "navigation_details")
-data class NavigationDetailsEntity(@PrimaryKey(autoGenerate = true) val id: Int? = null, var destinationAddress: String?, var actualLatLng: String?, var destinationLatLng: String?)
+data class NavigationDetailsEntity(
+    @PrimaryKey(autoGenerate = true) val id: Int? = null,
+    var destinationAddress: String?,
+    var actualLatLng: String?,
+    var destinationLatLng: String?
+)
