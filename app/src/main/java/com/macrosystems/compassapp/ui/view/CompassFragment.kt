@@ -65,7 +65,7 @@ class CompassFragment: Fragment(){
             animationLogicCounter = 0
             viewModel.deleteLastLocation()
         } else {
-            requireActivity().shortToast("Setting destination cancelled")
+            requireActivity().shortToast(getString(R.string.setting_destination_cancelled))
         }
     }
 
@@ -78,9 +78,7 @@ class CompassFragment: Fragment(){
         }
         if (permissionCount == 2){
             viewModel.startLocationUpdates()
-        } else {
-            requireActivity().longToast("Please go to settings and enable location permissions for this app.")
-        }
+        } else requireActivity().longToast(getString(R.string.go_to_settings_to_enable_location_permissions))
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -112,7 +110,7 @@ class CompassFragment: Fragment(){
                         YoYo.with(Techniques.SlideInDown).duration(1000).playOn(binding.tvDistanceFromDestination)
                         binding.tvDistanceFromDestination.isVisible = true
                         calculateDistance(destinationLatLng, false)
-                        binding.tvDistanceFromDestination.text = requireContext().getString(R.string.distance_from_destination, distanceToDestination.value ?: "loading...")
+                        binding.tvDistanceFromDestination.text = requireContext().getString(R.string.distance_from_destination, distanceToDestination.value ?: getString(R.string.loading_default_placeholder))
                         animationLogicCounter++
                     } else {
                         binding.tvDistanceFromDestination.isVisible = true
@@ -159,16 +157,18 @@ class CompassFragment: Fragment(){
 
 
     private fun setUpListeners() {
-        binding.btnSetNewDestination.setOnClickListener {
-            val fields = listOf(Place.Field.ADDRESS, Place.Field.LAT_LNG, Place.Field.NAME)
-            val intent = Autocomplete.IntentBuilder(AutocompleteActivityMode.OVERLAY, fields).build(requireActivity())
-            googlePlacesLauncher.launch(intent)
-        }
+        with(binding) {
+            btnSetNewDestination.setOnClickListener {
+                val fields = listOf(Place.Field.ADDRESS, Place.Field.LAT_LNG, Place.Field.NAME)
+                val intent = Autocomplete.IntentBuilder(AutocompleteActivityMode.OVERLAY, fields).build(requireActivity())
+                googlePlacesLauncher.launch(intent)
+            }
 
-        binding.tvDistanceFromDestination.setOnClickListener {
-            if (::destinationLatLng.isInitialized && ::destinationAddress.isInitialized){
-                val action = CompassFragmentDirections.actionCompassFragmentToMapFragment(destinationLatLng.latitude.toString(), destinationLatLng.longitude.toString(), destinationAddress)
-                findNavController().navigate(action)
+            tvDistanceFromDestination.setOnClickListener {
+                if (::destinationLatLng.isInitialized && ::destinationAddress.isInitialized){
+                    val action = CompassFragmentDirections.actionCompassFragmentToMapFragment(destinationLatLng.latitude.toString(), destinationLatLng.longitude.toString(), destinationAddress)
+                    findNavController().navigate(action)
+                }
             }
         }
     }
@@ -177,7 +177,6 @@ class CompassFragment: Fragment(){
         with(binding){
             pbProgressBar.isVisible = viewState.isLoading
             btnSetNewDestination.isVisible = viewState.onSuccess
-
 
             if (viewState.locationError) {
                 btnSetNewDestination.isGone = true
@@ -199,33 +198,33 @@ class CompassFragment: Fragment(){
     }
 
     private fun showGenericError() {
-        ErrorDialog.create(textMessage = "Sorry, an error has occurred, please try again.",
-        positiveAction = ErrorDialog.Action("OK") {
+        ErrorDialog.create(textMessage = getString(R.string.error_occurred_please_try_again_message),
+        positiveAction = ErrorDialog.Action(getString(R.string.ok_placeholder)) {
             it.dismiss()
         }).showDialog(dialogLauncher, requireActivity())
-
     }
 
     private fun compassSensorMissingError(){
-        ErrorDialog.create(textMessage = "Oops, your phone seems to not have a magnetic sensor, please close the app and open it again.", positiveAction = ErrorDialog.Action("GOT IT") {
+        ErrorDialog.create(textMessage = getString(R.string.sensor_error_message), positiveAction = ErrorDialog.Action(getString(
+                    R.string.got_it_default_placeholder)) {
             it.dismiss()
         }).showDialog(dialogLauncher, requireActivity())
     }
 
     private fun showGooglePlacesError() {
-        ErrorDialog.create(textMessage = "Sorry, an error has occurred, please try again.",
-            positiveAction = ErrorDialog.Action("OK") {
+        ErrorDialog.create(textMessage = getString(R.string.error_occurred_please_try_again_message),
+            positiveAction = ErrorDialog.Action(getString(R.string.ok_placeholder)) {
                 viewModel.initializeGooglePlaces()
                 it.dismiss()
-            }).showDialog(dialogLauncher, requireActivity())
+        }).showDialog(dialogLauncher, requireActivity())
     }
 
     private fun showLocationError(errorMessage: String?) {
-        ErrorDialog.create(textMessage = errorMessage ?: "Sorry, an error has occurred, please try again.",
+        ErrorDialog.create(textMessage = errorMessage ?: getString(R.string.error_occurred_please_try_again_message),
             positiveAction = ErrorDialog.Action("OK") {
                 enableLocation()
                 it.dismiss()
-            }).showDialog(dialogLauncher, requireActivity())
+        }).showDialog(dialogLauncher, requireActivity())
     }
 
     //Permission Logics
@@ -235,7 +234,7 @@ class CompassFragment: Fragment(){
 
     private fun requestLocationPermission() {
         if (ActivityCompat.shouldShowRequestPermissionRationale(requireActivity(), Manifest.permission.ACCESS_FINE_LOCATION)){
-            requireActivity().longToast("Please go to settings and enable location permissions.")
+            requireActivity().longToast(getString(R.string.go_to_settings_to_enable_location_permissions))
         } else {
             requestLocationPermissions.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
         }
