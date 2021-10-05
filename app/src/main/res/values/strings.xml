@@ -12,4 +12,11 @@
     <string name="go_back_button_placeholder">Go Back</string>
     <string name="lost_connection_default_text">Connection lost. Reconnecting… </string>
     <string name="connected_successfully_default_text">Connected</string>
+    <string name="error_occurred_please_try_again_message">Sorry, an error has occurred, please try again.</string>
+    <string name="ok_placeholder">OK</string>
+    <string name="sensor_error_message">Oops, your phone seems to not have a magnetic sensor, please close the app and open it again.</string>
+    <string name="got_it_default_placeholder">GOT IT</string>
+    <string name="go_to_settings_to_enable_location_permissions">Please go to settings and enable location permissions for this app.</string>
+    <string name="setting_destination_cancelled">Setting destination cancelled</string>
+    <string name="loading_default_placeholder">loading…</string>
 </resources>

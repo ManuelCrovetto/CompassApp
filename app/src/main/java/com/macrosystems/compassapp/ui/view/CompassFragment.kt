@@ -2,9 +2,7 @@ package com.macrosystems.compassapp.ui.view
 
 import android.Manifest
 import android.app.Activity.RESULT_OK
-
 import android.content.pm.PackageManager
-
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -25,10 +23,11 @@ import com.google.android.libraries.places.api.model.Place
 import com.google.android.libraries.places.widget.Autocomplete
 import com.google.android.libraries.places.widget.model.AutocompleteActivityMode
 import com.macrosystems.compassapp.R
-import com.macrosystems.compassapp.core.utils.DialogFragmentLauncher
 import com.macrosystems.compassapp.core.ex.longToast
 import com.macrosystems.compassapp.core.ex.shortToast
 import com.macrosystems.compassapp.core.ex.showDialog
+import com.macrosystems.compassapp.core.utils.DialogFragmentLauncher
+import com.macrosystems.compassapp.data.model.CompassData
 import com.macrosystems.compassapp.data.model.NavigationDetails
 import com.macrosystems.compassapp.databinding.CompassFragmentBinding
 import com.macrosystems.compassapp.ui.view.dialogs.ErrorDialog
@@ -36,9 +35,6 @@ import com.macrosystems.compassapp.ui.viewmodel.CompassFragmentViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collect
 import javax.inject.Inject
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.sin
 
 @AndroidEntryPoint
 class CompassFragment: Fragment(){
@@ -69,7 +65,7 @@ class CompassFragment: Fragment(){
             animationLogicCounter = 0
             viewModel.deleteLastLocation()
         } else {
-            requireActivity().shortToast("Setting destination cancelled")
+            requireActivity().shortToast(getString(R.string.setting_destination_cancelled))
         }
     }
 
@@ -82,9 +78,7 @@ class CompassFragment: Fragment(){
         }
         if (permissionCount == 2){
             viewModel.startLocationUpdates()
-        } else {
-            requireActivity().longToast("Please go to settings and enable location permissions for this app.")
-        }
+        } else requireActivity().longToast(getString(R.string.go_to_settings_to_enable_location_permissions))
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -99,36 +93,29 @@ class CompassFragment: Fragment(){
 
     }
 
-    private fun setUpListeners() {
-        binding.btnSetNewDestination.setOnClickListener {
-            val fields = listOf(Place.Field.ADDRESS, Place.Field.LAT_LNG, Place.Field.NAME)
-            val intent = Autocomplete.IntentBuilder(AutocompleteActivityMode.OVERLAY, fields).build(requireActivity())
-            googlePlacesLauncher.launch(intent)
-        }
-
-        binding.tvDistanceFromDestination.setOnClickListener {
-            if (::destinationLatLng.isInitialized && ::destinationAddress.isInitialized){
-                val action = CompassFragmentDirections.actionCompassFragmentToMapFragment(destinationLatLng.latitude.toString(), destinationLatLng.longitude.toString(), destinationAddress)
-                findNavController().navigate(action)
-            }
+    private fun enableLocation() {
+        if (isLocationPermissionGranted()){
+            viewModel.startLocationUpdates()
+        } else {
+            requestLocationPermission()
         }
     }
 
     private fun initObservers() {
         with(viewModel){
-            location.observe(viewLifecycleOwner, {
+            userLocation.observe(viewLifecycleOwner, {
                 actualLatLng = it
                 if (::destinationLatLng.isInitialized) {
-                    if (animationLogicCounter == 0){
+                    if (animationLogicCounter == 0) {
                         YoYo.with(Techniques.SlideInDown).duration(1000).playOn(binding.tvDistanceFromDestination)
                         binding.tvDistanceFromDestination.isVisible = true
                         calculateDistance(destinationLatLng, false)
-                        binding.tvDistanceFromDestination.text = requireContext().getString(R.string.distance_from_destination, distance.value ?: "loading...")
+                        binding.tvDistanceFromDestination.text = requireContext().getString(R.string.distance_from_destination, distanceToDestination.value ?: getString(R.string.loading_default_placeholder))
                         animationLogicCounter++
                     } else {
                         binding.tvDistanceFromDestination.isVisible = true
                         calculateDistance(destinationLatLng, false)
-                        binding.tvDistanceFromDestination.text = requireContext().getString(R.string.distance_from_destination, distance.value.toString())
+                        binding.tvDistanceFromDestination.text = requireContext().getString(R.string.distance_from_destination, distanceToDestination.value.toString())
                     }
 
                 } else {
@@ -137,28 +124,22 @@ class CompassFragment: Fragment(){
                 }
             })
 
-
             savedNavigationDetails.observe(viewLifecycleOwner, {
                 actualLatLng = it.actualLatLng
                 destinationLatLng = it.destinationLatLng
                 destinationAddress = it.destinationAddress
                 binding.tvActualSelectedDestination.text = getString(R.string.actual_destination, it.destinationAddress)
-
             })
 
             compassData.observe(viewLifecycleOwner, {
                 binding.tvDegrees.text = requireContext().getString(R.string.degrees_textview, it.azimuth.toString(), it.cardinalPoint)
                 binding.ivCompass.rotation = (-it.azimuth!!).toFloat()
 
-                if (::actualLatLng.isInitialized && ::destinationLatLng.isInitialized){
-                    binding.ivDestinationDirection.isVisible = true
-                    getDestinationBearing = it.azimuth - calculateBearing()
-                    binding.ivDestinationDirection.rotation = (getDestinationBearing.toFloat())
-                }
+                setDestinationBearingArrow(it)
             })
 
             lifecycleScope.launchWhenStarted {
-                viewState.collect{ viewState ->
+                viewState.collect { viewState ->
                     updateUI(viewState)
                 }
             }
@@ -166,11 +147,36 @@ class CompassFragment: Fragment(){
         }
     }
 
+    private fun setDestinationBearingArrow(compassData: CompassData) {
+        if (::actualLatLng.isInitialized && ::destinationLatLng.isInitialized){
+            binding.ivDestinationDirection.isVisible = true
+            getDestinationBearing = compassData.azimuth!! - viewModel.calculateBearing(destinationLatLng)
+            binding.ivDestinationDirection.rotation = (getDestinationBearing.toFloat())
+        }
+    }
+
+
+    private fun setUpListeners() {
+        with(binding) {
+            btnSetNewDestination.setOnClickListener {
+                val fields = listOf(Place.Field.ADDRESS, Place.Field.LAT_LNG, Place.Field.NAME)
+                val intent = Autocomplete.IntentBuilder(AutocompleteActivityMode.OVERLAY, fields).build(requireActivity())
+                googlePlacesLauncher.launch(intent)
+            }
+
+            tvDistanceFromDestination.setOnClickListener {
+                if (::destinationLatLng.isInitialized && ::destinationAddress.isInitialized){
+                    val action = CompassFragmentDirections.actionCompassFragmentToMapFragment(destinationLatLng.latitude.toString(), destinationLatLng.longitude.toString(), destinationAddress)
+                    findNavController().navigate(action)
+                }
+            }
+        }
+    }
+
     private fun updateUI(viewState: CompassViewState) {
         with(binding){
             pbProgressBar.isVisible = viewState.isLoading
             btnSetNewDestination.isVisible = viewState.onSuccess
-
 
             if (viewState.locationError) {
                 btnSetNewDestination.isGone = true
@@ -192,49 +198,43 @@ class CompassFragment: Fragment(){
     }
 
     private fun showGenericError() {
-        ErrorDialog.create(textMessage = "Sorry, an error has occurred, please try again.",
-        positiveAction = ErrorDialog.Action("OK") {
+        ErrorDialog.create(textMessage = getString(R.string.error_occurred_please_try_again_message),
+        positiveAction = ErrorDialog.Action(getString(R.string.ok_placeholder)) {
             it.dismiss()
         }).showDialog(dialogLauncher, requireActivity())
-
     }
 
     private fun compassSensorMissingError(){
-        ErrorDialog.create(textMessage = "Oops, your phone seems to not have a magnetic sensor, please close the app and open it again.", positiveAction = ErrorDialog.Action("GOT IT") {
+        ErrorDialog.create(textMessage = getString(R.string.sensor_error_message), positiveAction = ErrorDialog.Action(getString(
+                    R.string.got_it_default_placeholder)) {
             it.dismiss()
         }).showDialog(dialogLauncher, requireActivity())
     }
 
     private fun showGooglePlacesError() {
-        ErrorDialog.create(textMessage = "Sorry, an error has occurred, please try again.",
-            positiveAction = ErrorDialog.Action("OK") {
+        ErrorDialog.create(textMessage = getString(R.string.error_occurred_please_try_again_message),
+            positiveAction = ErrorDialog.Action(getString(R.string.ok_placeholder)) {
                 viewModel.initializeGooglePlaces()
                 it.dismiss()
-            }).showDialog(dialogLauncher, requireActivity())
+        }).showDialog(dialogLauncher, requireActivity())
     }
 
     private fun showLocationError(errorMessage: String?) {
-        ErrorDialog.create(textMessage = errorMessage ?: "Sorry, an error has occurred, please try again.",
+        ErrorDialog.create(textMessage = errorMessage ?: getString(R.string.error_occurred_please_try_again_message),
             positiveAction = ErrorDialog.Action("OK") {
                 enableLocation()
                 it.dismiss()
-            }).showDialog(dialogLauncher, requireActivity())
+        }).showDialog(dialogLauncher, requireActivity())
     }
 
     //Permission Logics
     private fun isLocationPermissionGranted() = ContextCompat.checkSelfPermission((requireActivity()), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(requireActivity(), Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
-    private fun enableLocation() {
-        if (isLocationPermissionGranted()){
-            viewModel.startLocationUpdates()
-        } else {
-            requestLocationPermission()
-        }
-    }
+
 
     private fun requestLocationPermission() {
         if (ActivityCompat.shouldShowRequestPermissionRationale(requireActivity(), Manifest.permission.ACCESS_FINE_LOCATION)){
-            requireActivity().longToast("Please go to settings and enable location permissions.")
+            requireActivity().longToast(getString(R.string.go_to_settings_to_enable_location_permissions))
         } else {
             requestLocationPermissions.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
         }
@@ -255,17 +255,6 @@ class CompassFragment: Fragment(){
         viewModel.stopLocationUpdates()
         viewModel.stopCompass()
         saveNavigationOnPersistence()
-    }
-    //
-
-    private fun calculateBearing(): Double{
-        val latitude1 = Math.toRadians(actualLatLng.latitude)
-        val latitude2 = Math.toRadians(destinationLatLng.latitude)
-        val longDiff = Math.toRadians(destinationLatLng.longitude - actualLatLng.longitude)
-        val y = sin(longDiff) * cos(latitude2)
-        val x = cos(latitude1) * sin(latitude2) - sin(latitude1) * cos(latitude2) * cos(longDiff)
-
-        return (Math.toDegrees(atan2(y, x)) + 360) % 360
     }
 
     private fun saveNavigationOnPersistence(){
