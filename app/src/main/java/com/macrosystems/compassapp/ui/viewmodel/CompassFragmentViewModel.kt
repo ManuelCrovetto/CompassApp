@@ -207,7 +207,7 @@ class CompassFragmentViewModel @Inject constructor(
         }
     }
 
-    fun calculateBearing(destinationLatLng: LatLng): Double{
+    fun calculateBearing(destinationLatLng: LatLng): Double {
         val latitude1 = Math.toRadians(userLocation.value!!.latitude)
         val latitude2 = Math.toRadians(destinationLatLng.latitude)
         val longDiff = Math.toRadians(destinationLatLng.longitude - userLocation.value!!.longitude)
