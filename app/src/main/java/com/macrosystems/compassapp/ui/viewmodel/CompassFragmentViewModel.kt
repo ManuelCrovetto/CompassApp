@@ -24,6 +24,8 @@ import com.macrosystems.compassapp.domain.localdb.SaveNavigationDetailsInToRoom
 import com.macrosystems.compassapp.ui.view.CompassViewState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -72,11 +74,12 @@ class CompassFragmentViewModel @Inject constructor(
 
     fun startLocationUpdates() {
         viewModelScope.launch {
-            val result: MutableLiveData<LatLng?>? = withContext(Dispatchers.IO) {
+            val result: MutableLiveData<LatLng?>? = withContext(IO) {
                 withTimeoutOrNull(TIME_OUT_FOR_GETTING_LOCATION) {
-                    startLocationUpdatesUseCase()
+                startLocationUpdatesUseCase()
                 }
             }
+
             _viewState.value = CompassViewState(isLoading = true)
             result?.observeForever {
                 it?.let {
@@ -100,20 +103,15 @@ class CompassFragmentViewModel @Inject constructor(
     }
 
     fun stopLocationUpdates() {
-        viewModelScope.launch {
-            withContext(Dispatchers.IO) {
-                stopLocationUpdatesUseCase()
-            }
+        viewModelScope.launch(IO) {
+            stopLocationUpdatesUseCase()
         }
     }
 
     fun initializeGooglePlaces() {
-        viewModelScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                googlePlacesUseCase()
-            }
+        viewModelScope.launch(IO) {
             _viewState.value = CompassViewState(isLoading = true)
-            when (result) {
+            when (val result = googlePlacesUseCase()) {
                 is Result.OnSuccess -> {
                     if (result.data) {
                         _viewState.value = CompassViewState(isLoading = false)
@@ -122,21 +120,15 @@ class CompassFragmentViewModel @Inject constructor(
                             CompassViewState(isLoading = false, googlePlacesError = true)
                     }
                 }
-                else -> {
-                }
             }
         }
-
     }
 
     fun calculateDistance(destinationLatLng: LatLng, isFirstQueryOfThisDestination: Boolean) {
         if (isFirstQueryOfThisDestination) {
-            viewModelScope.launch {
-                val result = withContext(Dispatchers.IO) {
-                    calculateDistanceUseCase(destinationLatLng = destinationLatLng)
-                }
+            viewModelScope.launch(IO) {
                 _viewState.value = CompassViewState(isLoading = true)
-                when (result) {
+                when (val result = calculateDistanceUseCase(destinationLatLng = destinationLatLng)) {
                     is Result.OnSuccess -> {
                         _distance.postValue(result.data)
                         _viewState.value = CompassViewState(isLoading = false, onSuccess = true)
@@ -148,11 +140,7 @@ class CompassFragmentViewModel @Inject constructor(
             }
         } else {
             viewModelScope.launch {
-                val result = withContext(Dispatchers.IO) {
-                    calculateDistanceUseCase(destinationLatLng = destinationLatLng)
-                }
-
-                when (result) {
+                when (val result = calculateDistanceUseCase(destinationLatLng = destinationLatLng)) {
                     is Result.OnSuccess -> {
                         _distance.postValue(result.data)
                         _viewState.value = CompassViewState(isLoading = false, onSuccess = true)
@@ -166,10 +154,8 @@ class CompassFragmentViewModel @Inject constructor(
     }
 
     fun startCompass() {
-        viewModelScope.launch {
-            val result = withContext(Dispatchers.Main) {
-                startCompassUseCase()
-            }
+        viewModelScope.launch(Main) {
+            val result = startCompassUseCase()
             result.observeForever { compassData ->
                 if (compassData.error) {
                     _viewState.value = CompassViewState(compassSensorError = true)
@@ -181,22 +167,19 @@ class CompassFragmentViewModel @Inject constructor(
     }
 
     fun stopCompass() {
-        viewModelScope.launch {
-            withContext(Dispatchers.Main) {
-                stopCompassUseCase()
-            }
+        viewModelScope.launch(Main) {
+            stopCompassUseCase()
         }
     }
 
     fun deleteLastLocation() {
-        viewModelScope.launch {
+        viewModelScope.launch(IO) {
             deleteLastLocationFromRoom()
         }
     }
 
     fun saveNavigationDetailsToLocalDB(navigationDetails: NavigationDetails) {
-        viewModelScope.launch {
-            withContext(Dispatchers.IO) {
+        viewModelScope.launch(IO) {
                 saveNavigationDetailsInToRoom(
                     navigationDetails = NavigationDetailsEntity(
                         destinationAddress = navigationDetails.destinationAddress,
@@ -204,14 +187,12 @@ class CompassFragmentViewModel @Inject constructor(
                         actualLatLng = latLngToString(navigationDetails.actualLatLng)
                     )
                 )
-            }
-
         }
     }
 
     private fun loadNavigationDetailsFromLocalDB() {
         viewModelScope.launch {
-            val result: LiveData<NavigationDetailsEntity>? = loadNavigationDetailsFromRoom()
+            val result: LiveData<NavigationDetailsEntity>? = withContext(IO) {loadNavigationDetailsFromRoom()}
             result?.observeForever {
                 it?.let {
                     _savedNavigationDetails.value = NavigationDetails(
@@ -223,6 +204,5 @@ class CompassFragmentViewModel @Inject constructor(
             }
         }
     }
-
 
 }
