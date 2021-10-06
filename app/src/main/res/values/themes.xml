@@ -23,5 +23,30 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
     </style>
+    
+    <style name="Button_Style">
+        <item name="fontFamily">@font/freesans</item>
+        <item name="backgroundTint">@color/quantum_googgreen700</item>
+        <item name="elevation">16dp</item>
+        <item name="paddingStart">16dp</item>
+        <item name="paddingEnd">16dp</item>
+        <item name="android:textColor">@color/black</item>
+        <item name="android:textSize">16sp</item>
+    </style>
+
+    <style name="Destination_TextView_Style">
+        <item name="android:background">@drawable/allradiocorners_lighpurple</item>
+        <item name="cornerRadius">16dp</item>
+        <item name="elevation">16dp</item>
+        <item name="android:ellipsize">end</item>
+        <item name="fontFamily">@font/freesans</item>
+        <item name="maxLines">2</item>
+        <item name="android:padding">8dp</item>
+        <item name="paddingStart">16dp</item>
+        <item name="paddingEnd">16dp</item>
+        <item name="android:textAlignment">center</item>
+        <item name="android:textColor">@color/black</item>
+        <item name="android:textSize">16sp</item>
+    </style>
 
 </resources>
