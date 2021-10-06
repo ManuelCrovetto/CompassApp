@@ -19,7 +19,9 @@
         <entry key="..\:/Users/Manuel Crovetto/AndroidStudioProjects/CompassApp/app/src/main/res/layout/compass_fragment.xml" value="0.25" />
         <entry key="..\:/Users/Manuel Crovetto/AndroidStudioProjects/CompassApp/app/src/main/res/layout/error_dialog.xml" value="0.2348684210526316" />
         <entry key="..\:/Users/Manuel Crovetto/AndroidStudioProjects/CompassApp/app/src/main/res/layout/map_fragment.xml" value="0.371875" />
-        <entry key="app/src/main/res/layout/compass_fragment.xml" value="0.25" />
+        <entry key="app/src/main/res/drawable-v24/allradiocorners_lighpurple.xml" value="0.2351851851851852" />
+        <entry key="app/src/main/res/layout/compass_fragment.xml" value="0.1" />
+        <entry key="app/src/main/res/layout/map_fragment.xml" value="0.1" />
       </map>
     </option>
   </component>
