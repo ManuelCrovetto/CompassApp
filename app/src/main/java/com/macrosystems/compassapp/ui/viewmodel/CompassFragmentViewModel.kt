@@ -9,7 +9,7 @@ import com.macrosystems.compassapp.data.local.NavigationDetailsEntity
 import com.macrosystems.compassapp.data.local.latLngToString
 import com.macrosystems.compassapp.data.local.stringToLatLng
 import com.macrosystems.compassapp.data.model.CompassData
-import com.macrosystems.compassapp.data.model.Constants.Companion.TIME_OUT_FOR_GETTING_LOCATION
+import com.macrosystems.compassapp.data.model.Constants.TIME_OUT_FOR_GETTING_LOCATION
 import com.macrosystems.compassapp.data.model.NavigationDetails
 import com.macrosystems.compassapp.data.response.Result
 import com.macrosystems.compassapp.domain.compass.StartCompassUseCase
@@ -23,7 +23,6 @@ import com.macrosystems.compassapp.domain.localdb.LoadNavigationDetailsFromRoom
 import com.macrosystems.compassapp.domain.localdb.SaveNavigationDetailsInToRoom
 import com.macrosystems.compassapp.ui.view.CompassViewState
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,6 +31,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
 
 @HiltViewModel
 class CompassFragmentViewModel @Inject constructor(
@@ -50,13 +52,13 @@ class CompassFragmentViewModel @Inject constructor(
     val savedNavigationDetails: LiveData<NavigationDetails>
         get() = _savedNavigationDetails
 
-    private val _location: MutableLiveData<LatLng> = MutableLiveData()
-    val location: LiveData<LatLng>
-        get() = _location
+    private val _userLocation: MutableLiveData<LatLng> = MutableLiveData()
+    val userLocation: LiveData<LatLng>
+        get() = _userLocation
 
-    private val _distance: MutableLiveData<Int> = MutableLiveData()
-    val distance: LiveData<Int>
-        get() = _distance
+    private val _distanceToDestination: MutableLiveData<Int> = MutableLiveData()
+    val distanceToDestination: LiveData<Int>
+        get() = _distanceToDestination
 
     private val _viewState = MutableStateFlow(CompassViewState())
     val viewState: StateFlow<CompassViewState>
@@ -83,7 +85,7 @@ class CompassFragmentViewModel @Inject constructor(
             _viewState.value = CompassViewState(isLoading = true)
             result?.observeForever {
                 it?.let {
-                    _location.postValue(it)
+                    _userLocation.postValue(it)
                     _viewState.value = CompassViewState(isLoading = false, onSuccess = true)
                 } ?: run {
                     _viewState.value = CompassViewState(
@@ -130,7 +132,7 @@ class CompassFragmentViewModel @Inject constructor(
                 _viewState.value = CompassViewState(isLoading = true)
                 when (val result = calculateDistanceUseCase(destinationLatLng = destinationLatLng)) {
                     is Result.OnSuccess -> {
-                        _distance.postValue(result.data)
+                        _distanceToDestination.postValue(result.data)
                         _viewState.value = CompassViewState(isLoading = false, onSuccess = true)
                     }
                     else -> {
@@ -142,7 +144,7 @@ class CompassFragmentViewModel @Inject constructor(
             viewModelScope.launch {
                 when (val result = calculateDistanceUseCase(destinationLatLng = destinationLatLng)) {
                     is Result.OnSuccess -> {
-                        _distance.postValue(result.data)
+                        _distanceToDestination.postValue(result.data)
                         _viewState.value = CompassViewState(isLoading = false, onSuccess = true)
                     }
                     else -> {
@@ -202,6 +204,20 @@ class CompassFragmentViewModel @Inject constructor(
                     )
                 }
             }
+        }
+    }
+
+    fun calculateBearing(destinationLatLng: LatLng): Double? {
+        return userLocation.value?.let {
+            val latitude1 = Math.toRadians(it.latitude)
+            val latitude2 = Math.toRadians(destinationLatLng.latitude)
+            val longDiff = Math.toRadians(destinationLatLng.longitude - it.longitude)
+            val y = sin(longDiff) * cos(latitude2)
+            val x = cos(latitude1) * sin(latitude2) - sin(latitude1) * cos(latitude2) * cos(longDiff)
+
+            (Math.toDegrees(atan2(y, x)) + 360) % 360
+        } ?: run {
+            null
         }
     }
 
