@@ -9,7 +9,7 @@ import com.macrosystems.compassapp.data.local.NavigationDetailsEntity
 import com.macrosystems.compassapp.data.local.latLngToString
 import com.macrosystems.compassapp.data.local.stringToLatLng
 import com.macrosystems.compassapp.data.model.CompassData
-import com.macrosystems.compassapp.data.model.Constants.Companion.TIME_OUT_FOR_GETTING_LOCATION
+import com.macrosystems.compassapp.data.model.Constants.TIME_OUT_FOR_GETTING_LOCATION
 import com.macrosystems.compassapp.data.model.NavigationDetails
 import com.macrosystems.compassapp.data.response.Result
 import com.macrosystems.compassapp.domain.compass.StartCompassUseCase
@@ -207,14 +207,18 @@ class CompassFragmentViewModel @Inject constructor(
         }
     }
 
-    fun calculateBearing(destinationLatLng: LatLng): Double {
-        val latitude1 = Math.toRadians(userLocation.value!!.latitude)
-        val latitude2 = Math.toRadians(destinationLatLng.latitude)
-        val longDiff = Math.toRadians(destinationLatLng.longitude - userLocation.value!!.longitude)
-        val y = sin(longDiff) * cos(latitude2)
-        val x = cos(latitude1) * sin(latitude2) - sin(latitude1) * cos(latitude2) * cos(longDiff)
+    fun calculateBearing(destinationLatLng: LatLng): Double? {
+        return userLocation.value?.let {
+            val latitude1 = Math.toRadians(it.latitude)
+            val latitude2 = Math.toRadians(destinationLatLng.latitude)
+            val longDiff = Math.toRadians(destinationLatLng.longitude - it.longitude)
+            val y = sin(longDiff) * cos(latitude2)
+            val x = cos(latitude1) * sin(latitude2) - sin(latitude1) * cos(latitude2) * cos(longDiff)
 
-        return (Math.toDegrees(atan2(y, x)) + 360) % 360
+            (Math.toDegrees(atan2(y, x)) + 360) % 360
+        } ?: run {
+            null
+        }
     }
 
 }

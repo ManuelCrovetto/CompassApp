@@ -19,4 +19,5 @@
     <string name="go_to_settings_to_enable_location_permissions">Please go to settings and enable location permissions for this app.</string>
     <string name="setting_destination_cancelled">Setting destination cancelled</string>
     <string name="loading_default_placeholder">loading…</string>
+    <string name="destination_default_placeholder">Destination</string>
 </resources>

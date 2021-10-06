@@ -1,5 +1,7 @@
 package com.macrosystems.compassapp.ui.view;
 
+import static com.macrosystems.compassapp.data.model.Constants.MAP_CAMERA_ZOOM;
+
 import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -44,7 +46,6 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
         setSupportMapFragment();
         setListeners();
         setNavController();
-
     }
 
     private void setNavController() {
@@ -52,7 +53,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
     }
 
     private void setListeners() {
-        binding.btnBackButtonFromMap.setOnClickListener(v -> navController.navigate(R.id.compassFragment));
+        binding.btnBackButtonFromMap.setOnClickListener(v -> navController.popBackStack());
     }
 
     private void setSupportMapFragment() {
@@ -77,16 +78,16 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
         }
     }
 
-    //Once the user is at this point he had to give permissions.
+    //Once the user is at this point, the user have had to give permissions.
     @SuppressLint("MissingPermission")
     private void setUpMap(LatLng destination) {
-        map.addMarker(new MarkerOptions().position(destination).title(destinationAddress).snippet("Destination"));
-        map.moveCamera(CameraUpdateFactory.newLatLngZoom(destination, 15));
+        map.addMarker(new MarkerOptions().position(destination).title(destinationAddress).snippet(getString(R.string.destination_default_placeholder)));
+        map.moveCamera(CameraUpdateFactory.newLatLngZoom(destination, MAP_CAMERA_ZOOM));
         map.getUiSettings().setMapToolbarEnabled(true);
 
         map.setOnMyLocationClickListener(location -> {
             LatLng actualLatLng = new LatLng(location.getLatitude(), location.getLongitude());
-            map.moveCamera(CameraUpdateFactory.newLatLngZoom(actualLatLng, 15));
+            map.moveCamera(CameraUpdateFactory.newLatLngZoom(actualLatLng, MAP_CAMERA_ZOOM));
         });
 
         map.setMyLocationEnabled(true);

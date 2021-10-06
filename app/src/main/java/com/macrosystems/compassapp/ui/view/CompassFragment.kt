@@ -150,8 +150,11 @@ class CompassFragment: Fragment(){
     private fun setDestinationBearingArrow(compassData: CompassData) {
         if (::actualLatLng.isInitialized && ::destinationLatLng.isInitialized){
             binding.ivDestinationDirection.isVisible = true
-            getDestinationBearing = compassData.azimuth!! - viewModel.calculateBearing(destinationLatLng)
-            binding.ivDestinationDirection.rotation = (getDestinationBearing.toFloat())
+
+            viewModel.calculateBearing(destinationLatLng)?.let {
+                getDestinationBearing = (compassData.azimuth!! - it)
+                binding.ivDestinationDirection.rotation = (getDestinationBearing.toFloat())
+            }
         }
     }
 
@@ -221,7 +224,7 @@ class CompassFragment: Fragment(){
 
     private fun showLocationError(errorMessage: String?) {
         ErrorDialog.create(textMessage = errorMessage ?: getString(R.string.error_occurred_please_try_again_message),
-            positiveAction = ErrorDialog.Action("OK") {
+            positiveAction = ErrorDialog.Action(getString(R.string.ok_placeholder)) {
                 enableLocation()
                 it.dismiss()
         }).showDialog(dialogLauncher, requireActivity())
